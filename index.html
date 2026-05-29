@@ -2,21 +2,262 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X / 가짜 타임라인 (진짜 최종 완성 룰)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>X / 가짜 타임라인</title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+        /* 기본 리셋 및 스크롤바 커스텀 */
+        * { 
+            box-sizing: border-box; 
+            margin: 0; 
+            padding: 0; 
+            -webkit-tap-highlight-color: transparent; /* 모바일 터치 깜빡임 방지 */
+        }
         body {
             background-color: #000000;
             color: #e7e9ea;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             height: 100vh;
             overflow: hidden;
+            user-select: none; /* 드래그 방지로 게임 몰입감 업 */
         }
         
-        /* 시작 전 주의사항 스크린 */
+        /* 메인 컨테이너 레이아웃 (PC 중심에서 모바일로 유연하게 늘어남) */
+        .container { 
+            display: flex; 
+            width: 100%; 
+            max-width: 1000px; 
+            height: 100%; 
+            border-left: 1px solid #2f3336; 
+            border-right: 1px solid #2f3336; 
+            position: relative;
+        }
+
+        /* ==========================================================================
+           1. 왼쪽 사이드바 (PC버전 전용 - 가로가 넓을 때만 노출)
+           ========================================================================== */
+        .sidebar { 
+            width: 275px; 
+            padding: 20px; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; 
+            border-right: 1px solid #2f3336; 
+        }
+        .logo { 
+            font-size: 30px; 
+            padding-left: 10px; 
+            margin-bottom: 20px; 
+            font-weight: bold;
+        }
+        .menu-item { 
+            font-size: 20px; 
+            padding: 12px; 
+            border-radius: 9999px; 
+            cursor: pointer; 
+            margin-bottom: 10px; 
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .menu-item:hover { 
+            background-color: rgba(231, 233, 234, 0.1); 
+        }
+        
+        /* PC용 게시하기 (Post) 버튼 */
+        .post-btn { 
+            background-color: #1d9bf0; 
+            color: white; 
+            text-align: center; 
+            padding: 15px; 
+            border-radius: 9999px; 
+            font-weight: bold; 
+            font-size: 17px; 
+            cursor: pointer; 
+            margin-top: 20px; 
+            border: none;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        .post-btn:hover { 
+            background-color: #1a8cd8; 
+        }
+
+        /* ==========================================================================
+           2. 모바일/태블릿용 하단 메뉴바 & 모바일 플로팅 게시 버튼 (기본 숨김)
+           ========================================================================== */
+        .mobile-nav {
+            display: none; /* 기본 PC에서는 비활성화 */
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 53px;
+            background-color: #000000;
+            border-top: 1px solid #2f3336;
+            z-index: 10;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .mobile-nav-item {
+            color: #e7e9ea;
+            font-size: 22px;
+            cursor: pointer;
+            padding: 10px 20px;
+        }
+
+        /* 모바일용 플로팅 동그란 게시글 게시 버튼 (우측 하단) */
+        .mobile-floating-post {
+            display: none; /* 기본 PC에서는 비활성화 */
+            position: fixed;
+            right: 20px;
+            bottom: 70px;
+            width: 56px;
+            height: 56px;
+            background-color: #1d9bf0;
+            border-radius: 50%;
+            color: white;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0px 4px 12px rgba(29, 155, 240, 0.4);
+            border: none;
+            z-index: 9;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        .mobile-floating-post:active {
+            transform: scale(0.95);
+            background-color: #1a8cd8;
+        }
+
+        /* ==========================================================================
+           3. 중앙 메인 타임라인 영역 (PC/모바일 공통 스크롤 구역)
+           ========================================================================== */
+        .timeline { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%; 
+            position: relative;
+        }
+        .timeline-header { 
+            padding: 15px; 
+            font-size: 19px; 
+            font-weight: bold; 
+            border-bottom: 1px solid #2f3336; 
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        .tweet-list { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding-bottom: 80px; /* 모바일 하단바 및 동동이 버튼 여백 확보 */
+        }
+        
+        /* 개별 트윗 구조 및 터치 타깃 최적화 */
+        .tweet { 
+            display: flex; 
+            padding: 15px; 
+            border-bottom: 1px solid #2f3336; 
+            transition: background-color 0.15s;
+        }
+        .tweet:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        .profile-area { 
+            margin-right: 12px; 
+        }
+        .profile-img { 
+            width: 48px; 
+            height: 48px; 
+            border-radius: 50%; 
+            background-color: #333; 
+            object-fit: cover; 
+            display: block;
+        }
+        .tweet-content { 
+            flex: 1; 
+        }
+        .tweet-user { 
+            display: flex;
+            align-items: center;
+            font-size: 15px; 
+            margin-bottom: 4px; 
+            flex-wrap: wrap;
+        }
+        .tweet-user .name { 
+            font-weight: bold; 
+            color: #f7f9fa; 
+            margin-right: 4px;
+        }
+        .tweet-user .handle { 
+            color: #71767b; 
+        }
+        .tweet-text { 
+            font-size: 15px; 
+            line-height: 20px; 
+            color: #e7e9ea; 
+            margin-bottom: 12px; 
+            white-space: pre-wrap; 
+            word-break: break-all;
+        }
+        
+        /* 맘찍(마음에 들어요) 버튼 - 모바일용 패딩 확대 */
+        .like-btn { 
+            display: inline-flex; 
+            align-items: center; 
+            color: #71767b; 
+            cursor: pointer; 
+            font-size: 13.5px; 
+            background: none; 
+            border: none; 
+            padding: 8px 12px 8px 0px; /* 터치 미스 방지를 위한 넉넉한 오프셋 */
+            transition: color 0.15s, transform 0.1s; 
+            outline: none;
+        }
+        .like-btn:hover { 
+            color: #f91880; 
+        }
+        .like-btn svg { 
+            width: 18px; 
+            height: 18px; 
+            fill: currentColor; 
+            margin-right: 6px; 
+            transition: fill 0.15s; 
+        }
+        
+        /* 맘찍 활성화 상태 */
+        .like-btn.active { 
+            color: #f91880; 
+            transform: scale(1.08); 
+        }
+        .like-btn.active svg { 
+            fill: #f91880; 
+        }
+        
+        /* 상단 상태 가이드 바 */
+        .status-bar { 
+            padding: 12px 15px; 
+            background-color: #1d9bf0; 
+            color: white; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 14px;
+            line-height: 1.4;
+            word-break: keep-all;
+        }
+        
+        /* ==========================================================================
+           4. 풀스크린 레이어 (스타트 화면, 엔딩 화면)
+           ========================================================================== */
+        /* 시작 경고 팝업 */
         #start-screen {
             position: fixed;
             top: 0; left: 0;
@@ -28,82 +269,139 @@
             align-items: center;
             z-index: 1000;
             padding: 20px;
-            text-align: center;
         }
         .warning-box {
-            max-width: 600px;
+            width: 100%;
+            max-width: 520px;
             border: 1px solid #2f3336;
-            padding: 40px;
+            padding: 35px 25px;
             border-radius: 16px;
             background-color: #050505;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(255,255,255,0.05);
         }
         .warning-title {
             color: #ff4a4a;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             letter-spacing: 1px;
         }
         .warning-text {
-            font-size: 16px;
-            line-height: 26px;
+            font-size: 14.5px;
+            line-height: 1.7;
             color: #e7e9ea;
-            margin-bottom: 30px;
+            margin-bottom: 25px;
+            text-align: left;
             word-break: keep-all;
         }
         .start-btn {
             background-color: #ffffff;
             color: #000000;
-            padding: 15px 40px;
+            padding: 14px 45px;
             border-radius: 9999px;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, transform 0.1s;
             display: inline-block;
+            border: none;
+            width: 100%;
+            max-width: 250px;
         }
-        .start-btn:hover {
+        .start-btn:active {
+            transform: scale(0.97);
             background-color: #e6e6e6;
         }
 
-        /* 메인 게임 컨테이너 */
-        .container { display: flex; width: 100%; max-width: 1000px; height: 100%; border-left: 1px solid #2f3336; border-right: 1px solid #2f3336; }
-        .sidebar { width: 275px; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid #2f3336; }
-        .logo { font-size: 30px; padding-left: 10px; margin-bottom: 20px; }
-        .menu-item { font-size: 20px; padding: 12px; border-radius: 9999px; cursor: pointer; margin-bottom: 10px; }
-        .menu-item:hover { background-color: rgba(231, 233, 234, 0.1); }
-        .post-btn { background-color: #1d9bf0; color: white; text-align: center; padding: 15px; border-radius: 9999px; font-weight: bold; font-size: 17px; cursor: pointer; margin-top: 20px; }
-        .post-btn:hover { background-color: #1a8cd8; }
-        
-        .timeline { flex: 1; display: flex; flex-direction: column; height: 100%; }
-        .timeline-header { padding: 15px; font-size: 20px; font-weight: bold; border-bottom: 1px solid #2f3336; }
-        .tweet-list { flex: 1; overflow-y: auto; }
-        .tweet { display: flex; padding: 15px; border-bottom: 1px solid #2f3336; position: relative; }
-        .profile-area { margin-right: 12px; }
-        .profile-img { width: 48px; height: 48px; border-radius: 50%; background-color: #333; object-fit: cover; }
-        .tweet-content { flex: 1; }
-        .tweet-user { font-size: 15px; margin-bottom: 4px; }
-        .tweet-user .name { font-weight: bold; color: #f7f9fa; }
-        .tweet-user .handle { color: #71767b; margin-left: 4px; }
-        .tweet-text { font-size: 15px; line-height: 20px; color: #e7e9ea; margin-bottom: 10px; white-space: pre-wrap; }
-        
-        /* 맘찍 버튼 스타일 */
-        .like-btn { display: inline-flex; align-items: center; color: #71767b; cursor: pointer; font-size: 14px; transition: color 0.15s, transform 0.1s; background: none; border: none; }
-        .like-btn:hover { color: #f91880; }
-        .like-btn svg { width: 18px; height: 18px; fill: currentColor; margin-right: 5px; transition: fill 0.15s; }
-        .like-btn.active { color: #f91880; transform: scale(1.05); }
-        .like-btn.active svg { fill: #f91880; }
-        
-        .status-bar { padding: 10px; background-color: #1d9bf0; color: white; text-align: center; font-weight: bold; }
-        
-        /* 엔딩 스크린 */
-        #ending-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000; color: #ff4a4a; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
-        .boom-text { font-size: 3rem; font-weight: bold; margin-bottom: 20px; animation: glitch 1s infinite; }
-        @keyframes glitch { 0% { transform: translate(0) } 20% { transform: translate(-3px, 3px) } 40% { transform: translate(-3px, -3px) } 60% { transform: translate(3px, 3px) } 80% { transform: translate(3px, -3px) } 100% { transform: translate(0) } }
+        /* 엔딩 화면 */
+        #ending-screen { 
+            display: none; 
+            position: fixed; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background-color: #000; 
+            color: #ff4a4a; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 999; 
+            text-align: center;
+            padding: 20px;
+        }
+        .boom-text { 
+            font-size: 2.5rem; 
+            font-weight: bold; 
+            margin-bottom: 20px; 
+            animation: glitch 1s infinite; 
+            word-break: keep-all;
+        }
+        @keyframes glitch { 
+            0% { transform: translate(0) } 
+            20% { transform: translate(-3px, 3px) } 
+            40% { transform: translate(-3px, -3px) } 
+            60% { transform: translate(3px, 3px) } 
+            80% { transform: translate(3px, -3px) } 
+            100% { transform: translate(0) } 
+        }
+
+        /* ==========================================================================
+           5. 미디어 쿼리 (화면 가로 너비 기준 스마트폰 모드 강제 전향)
+           ========================================================================== */
+        @media (max-width: 768px) {
+            /* 1. PC용 왼쪽 메뉴를 끄기 */
+            .sidebar {
+                display: none;
+            }
+            
+            /* 2. 테두리 및 양쪽 여백 제거하여 풀스크린 사용 */
+            .container {
+                border-left: none;
+                border-right: none;
+            }
+            
+            /* 3. 모바일 전용 네비바 노출 */
+            .mobile-nav {
+                display: flex;
+            }
+            
+            /* 4. 모바일 전용 동동이(플로팅) 게시 버튼 노출 */
+            .mobile-floating-post {
+                display: flex;
+            }
+            
+            /* 5. 트윗 리스트 바닥 공간 확보 */
+            .tweet-list {
+                padding-bottom: 140px; /* 하단바 덮기 방지 */
+            }
+            
+            /* 6. 알림창 정보 축소 */
+            .status-bar {
+                font-size: 12.5px;
+                padding: 10px;
+            }
+            
+            /* 7. 경고창 크기 패딩 패치 */
+            .warning-box {
+                padding: 25px 15px;
+            }
+            .warning-title {
+                font-size: 19px;
+            }
+            .warning-text {
+                font-size: 13.5px;
+                line-height: 1.6;
+            }
+            
+            /* 8. 엔딩 텍스트 사이즈 */
+            .boom-text {
+                font-size: 2rem;
+            }
+        }
     </style>
 </head>
 <body>
 
+    <!-- [1] 게임 시작 전 주의사항 팝업 레이어 -->
     <div id="start-screen">
         <div class="warning-box">
             <div class="warning-title">⚠️ PLAY WARNING ⚠️</div>
@@ -114,44 +412,69 @@
                 이상한 프로필 사진, 이상한 트윗을 쓰는 사람을 발견한다면 <strong>맘찍 후 post</strong>를 누릅니다.<br>
                 그 누구도 이상하지 않을 시 <strong>post</strong>를 누르면 넘어갑니다.
             </div>
-            <div class="start-btn" onclick="startGame()">게임 시작 (Start)</div>
+            <button class="start-btn" onclick="startGame()">게임 시작 (Start)</button>
         </div>
     </div>
 
+    <!-- [2] 메인 게임 컨테이너 -->
     <div class="container">
+        
+        <!-- PC 환경용 왼쪽 사이드바 (모바일에서는 미디어쿼리로 꺼짐) -->
         <div class="sidebar">
             <div>
                 <div class="logo">𝕏</div>
-                <div class="menu-item">🏠 홈</div>
-                <div class="menu-item">🔍 탐색하기</div>
-                <div class="menu-item">🔔 알림</div>
-                <div class="post-btn" onclick="pressPostButton()">게시하기 (Post)</div>
+                <div class="menu-item">🏠 <span>홈</span></div>
+                <div class="menu-item">🔍 <span>탐색하기</span></div>
+                <div class="menu-item">🔔 <span>알림</span></div>
+                <button class="post-btn" onclick="pressPostButton()">게시하기 (Post)</button>
             </div>
-            <div style="font-size: 12px; color: #71767b;">현재 탈출 단계: <span id="stage-num">0</span> / 8</div>
+            <div style="font-size: 12.5px; color: #71767b; font-weight: bold; padding-left: 10px;">
+                현재 탈출 단계: <span id="stage-num">0</span> / 8
+            </div>
         </div>
 
+        <!-- 모바일 환경 전용 우측 하단 동그란 플로팅 버튼 (PC에선 꺼짐, 모바일에서 켜짐) -->
+        <button class="mobile-floating-post" onclick="pressPostButton()">
+            <!-- 깃털 모양 펜 혹은 플러스 형태의 글 작성 아이콘 이미지 대체용 SVG -->
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: white;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+
+        <!-- 모바일 환경 전용 하단 고정바 (PC에선 꺼짐, 모바일에서 켜짐) -->
+        <nav class="mobile-nav">
+            <div class="mobile-nav-item" onclick="alert('홈 탭입니다. 이상현상이 있다면 맘찍을 해주세요.')">🏠</div>
+            <div class="mobile-nav-item" onclick="alert('현재 탈출 단계: ' + currentStage + ' / 8')">🔔</div>
+            <div class="mobile-nav-item" style="font-size: 14px; font-weight: bold; color: #1d9bf0;">
+                <span id="mobile-stage-num">0</span>/8
+            </div>
+        </nav>
+
+        <!-- 중앙 타임라인 컨텐츠 구역 -->
         <div class="timeline">
             <div class="status-bar" id="game-status">0단계: 첫 탐라는 안전합니다. 스크롤을 내려 11명의 정상 상태와 순서를 기억하세요!</div>
             <div class="timeline-header">추천 트레일러</div>
-            <div class="tweet-list" id="tweet-box"></div>
+            <div class="tweet-list" id="tweet-box">
+                <!-- 자바스크립트로 트윗들이 동적 렌더링 됩니다 -->
+            </div>
         </div>
     </div>
 
+    <!-- [3] 8단계 최종 폭파 엔딩 화면 -->
     <div id="ending-screen">
         <div class="boom-text">💥 축하드립니다! 💥</div>
-        <p style="font-size: 1.5rem; color: #fff;">당신의 계정이 안전하게 폭파(탈출)되었습니다.</p>
+        <p style="font-size: 1.3rem; color: #fff; margin-bottom: 30px; word-break: keep-all; line-height: 1.6;">당신의 계정이 안전하게 폭파(탈출)되었습니다.</p>
+        <button class="start-btn" onclick="location.reload()" style="max-width: 180px;">처음부터 다시하기</button>
     </div>
 
     <script>
         let currentStage = 0;
         
-        // 현재 한 판(도전 세션) 동안 유지될 고정 순서 배열
+        // 유저 11명의 배치 고정 순서를 한 판당 저장해둘 공간
         let fixedRoundUsers = []; 
         
-        let targetAnomalyIndices = []; 
-        let clickedIndices = [];       
+        let targetAnomalyIndices = []; // 이번 라운드 정답 (이상현상 트윗 인덱스 목록)
+        let clickedIndices = [];       // 플레이어가 하트를 활성화한 인덱스 목록
 
-        // 데이터 풀
+        // 1번부터 11번 유저 텍스트 데이터베이스
         const userPool = [
             { name: "도훈 쿤(가짜)", handle: "@g1mxcho1", normalText: "오늘 끔찍한 시간 어때요?", horrorText: "즌다몬 귀 다 떼서 완두콩국으로 처먹고 싶네", normalImg: "1.jpg", horrorImg: "n1.jpg" },
             { name: "잡덕_", handle: "@Mjyap_i21", normalText: "해삐가스트 >_<", horrorText: "베말뇩벎륌렉꽜꽹딩뮐뤠벅", normalImg: "2.jpg", horrorImg: "n2.jpg" },
@@ -166,23 +489,24 @@
             { name: "게임마스터", handle: "@game_master", normalText: "8번출구 드디어 다 깼다 깨달음을 얻음", horrorText: "넌 절대로 여기서 나갈 수 없어", normalImg: "11.jpg", horrorImg: "n11.jpg" }
         ];
 
+        // 무작위 셔플 헬퍼 함수
         function shuffle(array) {
             return array.sort(() => Math.random() - 0.5);
         }
 
-        // 게임 시작 (첫 진입 시 무작위 순서 생성)
+        // 게임 팝업에서 [게임 시작]을 터치했을 때 호출
         function startGame() {
             document.getElementById('start-screen').style.display = 'none';
             mixAndRender();
         }
 
-        // [핵심] 0단계 진입 시 혹은 리셋 시에 '새로운 랜덤 순서'를 부여하고 화면을 그리는 함수
+        // 첫 시작 시, 또는 오답 리셋 시에만 순서를 완전히 새로 섞고 고정하는 함수
         function mixAndRender() {
-            fixedRoundUsers = shuffle([...userPool]); // 순서를 완전히 새로 섞어 고정함
+            fixedRoundUsers = shuffle([...userPool]); 
             renderTimeline();
         }
 
-        // 순서는 고정된 채, 매 스테이지마다 이상현상만 랜덤 계산하여 화면을 갱신하는 함수
+        // 타임라인 그리기 및 이상현상 발생 계산
         function renderTimeline() {
             targetAnomalyIndices = [];
             clickedIndices = [];
@@ -190,22 +514,23 @@
             const tweetBox = document.getElementById('tweet-box');
             tweetBox.innerHTML = ''; 
 
+            // 박제된 고정 정렬 순서대로 트윗들을 생성합니다.
             fixedRoundUsers.forEach((user, index) => {
                 let imgName = user.normalImg;
                 let tweetText = user.normalText;
 
-                // 1단계부터 각 유저당 25% 확률로 변이 계산
+                // 1단계부터 유저별로 각각 독립된 25%의 기형 확률 변이 계산
                 if (currentStage > 0) {
                     if (Math.random() < 0.25) {
-                        targetAnomalyIndices.push(index); 
+                        targetAnomalyIndices.push(index); // 이상현상 리스트에 인덱스 기록
 
                         let typeRand = Math.random();
                         if (typeRand < 0.33) {
-                            imgName = user.horrorImg; 
+                            imgName = user.horrorImg; // 프사 이상
                         } else if (typeRand < 0.66) {
-                            tweetText = user.horrorText; 
+                            tweetText = user.horrorText; // 텍스트 이상
                         } else {
-                            imgName = user.horrorImg; 
+                            imgName = user.horrorImg; // 둘 다 이상!!
                             tweetText = user.horrorText;
                         }
                     }
@@ -215,7 +540,7 @@
                 tweetDiv.className = 'tweet';
                 tweetDiv.innerHTML = `
                     <div class="profile-area">
-                        <img src="${imgName}" class="profile-img">
+                        <img src="${imgName}" class="profile-img" alt="profile">
                     </div>
                     <div class="tweet-content">
                         <div class="tweet-user">
@@ -232,10 +557,13 @@
                 tweetBox.appendChild(tweetDiv);
             });
 
+            // 상단 및 모바일 상태창 수치 갱신
             document.getElementById('stage-num').innerText = currentStage;
-            tweetBox.scrollTop = 0; 
+            document.getElementById('mobile-stage-num').innerText = currentStage;
+            tweetBox.scrollTop = 0; // 스크롤바 맨 위로 복귀
         }
 
+        // 개별 트윗 맘찍(마음에 들어요) 버튼 토글 로직
         function clickLikeButton(index) {
             const likeBtn = document.getElementById(`like-${index}`);
             
@@ -248,6 +576,7 @@
             }
         }
 
+        // 사이드바 혹은 모바일 플로팅 'Post' 버튼 터치 시 최종 검증
         function pressPostButton() {
             targetAnomalyIndices.sort((a, b) => a - b);
             clickedIndices.sort((a, b) => a - b);
@@ -256,27 +585,28 @@
 
             if (isCorrect) {
                 if (targetAnomalyIndices.length === 0) {
-                    alert("이상 무. 안전한 타임라인이었습니다. 다음 구역으로 전진합니다!");
+                    alert("이상 무. 안전한 타임라인이었습니다. 전진합니다!");
                 } else {
                     alert(`정답! 숨어있던 ${targetAnomalyIndices.length}개의 이상현상을 모두 저지했습니다.`);
                 }
                 currentStage++;
                 checkWinCondition();
             } else {
-                // [수정] 틀렸을 때는 가차없이 0단계로 가면서 11명의 정렬 순서도 새로 완전히 뒤섞어버림!
-                alert("놓친 이상현상이 있거나 잘못된 트윗에 맘찍을 눌렀습니다! 순서가 새롭게 재배치되며 처음으로 리셋됩니다.");
+                // 오답 시 처음(0단계)으로 회귀하며 타임라인 정렬 순서 또한 완전 무작위 셔플
+                alert("놓친 이상현상이 있거나 정상 트윗에 맘찍을 했습니다! 순서가 새롭게 재배치되며 처음으로 리셋됩니다.");
                 currentStage = 0;
                 document.getElementById('game-status').innerText = "0단계: 처음부터 다시 관찰하세요.";
-                mixAndRender(); // 순서 새로 섞고 리셋
+                mixAndRender(); // 순서 섞으면서 초기화
             }
         }
 
+        // 8단계 탈출 조건 검증
         function checkWinCondition() {
             if (currentStage >= 8) { 
                 document.getElementById('ending-screen').style.display = 'flex';
             } else {
                 document.getElementById('game-status').innerText = `성공! 다음 단계로 진입합니다. (${currentStage}/8)`;
-                renderTimeline(); // 성공해서 전진할 때는 기존 순서 그대로 고정 유지!
+                renderTimeline(); // 전진 시 기존 정렬 배치는 끝까지 유지
             }
         }
     </script>
